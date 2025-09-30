@@ -23,7 +23,7 @@
       margin: 20px auto;
       background: black;
       border: 4px solid white;
-      cursor: none; /* hide cursor inside game */
+      cursor: none;
     }
 
     #highScore {
@@ -87,37 +87,62 @@
         ball.spin = 0;
       }
 
-      // Bounce player paddle
+      // Player paddle collision
+      let playerRect = {
+        left: player.x,
+        right: player.x + player.w,
+        top: player.y - player.depth,
+        bottom: player.y - player.depth + player.h
+      };
+
       if (
-        ball.y + ball.r >= player.y - player.depth &&
-        ball.y + ball.r <= player.y - player.depth + player.h &&
-        ball.x > player.x &&
-        ball.x < player.x + player.w
+        ball.x + ball.r > playerRect.left &&
+        ball.x - ball.r < playerRect.right &&
+        ball.y + ball.r > playerRect.top &&
+        ball.y - ball.r < playerRect.bottom &&
+        ball.dy > 0
       ) {
-        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
-        ball.dy *= -1;
+        // Bounce up
+        ball.dy = -Math.abs(ball.dy);
+
+        // Add spin based on where it hit
+        let hitPos = (ball.x - (playerRect.left + player.w / 2)) / (player.w / 2);
         ball.dx += hitPos * 2;
-        ball.spin = hitPos * (player.depth / 10); // spin stronger with more depth
+        ball.spin = hitPos * (player.depth / 10);
       }
 
-      // Bounce computer paddle
+      // Computer paddle collision
+      let compRect = {
+        left: computer.x,
+        right: computer.x + computer.w,
+        top: computer.y,
+        bottom: computer.y + computer.h
+      };
+
       if (
-        ball.y - ball.r <= computer.y + computer.h &&
-        ball.x > computer.x &&
-        ball.x < computer.x + computer.w
+        ball.x + ball.r > compRect.left &&
+        ball.x - ball.r < compRect.right &&
+        ball.y + ball.r > compRect.top &&
+        ball.y - ball.r < compRect.bottom &&
+        ball.dy < 0
       ) {
-        ball.dy *= -1;
-        ball.spin = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 4);
+        // Bounce down
+        ball.dy = Math.abs(ball.dy);
+
+        // Add spin
+        let hitPos = (ball.x - (compRect.left + computer.w / 2)) / (computer.w / 2);
+        ball.dx += hitPos * 2;
+        ball.spin = hitPos;
       }
 
       // Player loses
-      if (ball.y + ball.r > canvas.height) {
+      if (ball.y - ball.r > canvas.height) {
         score = 0;
         resetBall();
       }
 
       // Player scores
-      if (ball.y - ball.r < 0) {
+      if (ball.y + ball.r < 0) {
         score++;
         if (score > highScore) {
           highScore = score;
@@ -152,12 +177,12 @@
       let mouseX = e.clientX - rect.left;
       let mouseY = e.clientY - rect.top;
 
-      // Horizontal control
+      // Horizontal
       player.x = mouseX - player.w / 2;
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Depth control (much larger range, up to half the canvas height)
+      // Depth (now maps smoothly up to half the canvas)
       let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
