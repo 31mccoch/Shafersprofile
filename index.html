@@ -77,60 +77,63 @@
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Save old position
+      let oldX = ball.x;
+      let oldY = ball.y;
+
       // Move ball
       ball.x += ball.dx + ball.spin;
       ball.y += ball.dy;
 
       // Bounce walls
-      if (ball.x + ball.r > canvas.width || ball.x - ball.r < 0) {
+      if (ball.x + ball.r > canvas.width) {
+        ball.x = canvas.width - ball.r;
+        ball.dx *= -1;
+        ball.spin = 0;
+      }
+      if (ball.x - ball.r < 0) {
+        ball.x = ball.r;
         ball.dx *= -1;
         ball.spin = 0;
       }
 
-      // Player paddle collision
-      let playerRect = {
-        left: player.x,
-        right: player.x + player.w,
-        top: player.y - player.depth,
-        bottom: player.y - player.depth + player.h
-      };
+      // === PLAYER PADDLE COLLISION ===
+      let playerTop = player.y - player.depth;
+      let playerBottom = playerTop + player.h;
+      let playerLeft = player.x;
+      let playerRight = player.x + player.w;
 
       if (
-        ball.x + ball.r > playerRect.left &&
-        ball.x - ball.r < playerRect.right &&
-        ball.y + ball.r > playerRect.top &&
-        ball.y - ball.r < playerRect.bottom &&
-        ball.dy > 0
+        oldY + ball.r <= playerTop && // was above paddle
+        ball.y + ball.r >= playerTop && // now inside/down
+        ball.x > playerLeft &&
+        ball.x < playerRight
       ) {
-        // Bounce up
-        ball.dy = -Math.abs(ball.dy);
+        ball.y = playerTop - ball.r; // snap just above paddle
+        ball.dy = -Math.abs(ball.dy); // bounce upward
 
-        // Add spin based on where it hit
-        let hitPos = (ball.x - (playerRect.left + player.w / 2)) / (player.w / 2);
+        // add spin
+        let hitPos = (ball.x - (playerLeft + player.w / 2)) / (player.w / 2);
         ball.dx += hitPos * 2;
         ball.spin = hitPos * (player.depth / 10);
       }
 
-      // Computer paddle collision
-      let compRect = {
-        left: computer.x,
-        right: computer.x + computer.w,
-        top: computer.y,
-        bottom: computer.y + computer.h
-      };
+      // === COMPUTER PADDLE COLLISION ===
+      let compTop = computer.y;
+      let compBottom = compTop + computer.h;
+      let compLeft = computer.x;
+      let compRight = computer.x + computer.w;
 
       if (
-        ball.x + ball.r > compRect.left &&
-        ball.x - ball.r < compRect.right &&
-        ball.y + ball.r > compRect.top &&
-        ball.y - ball.r < compRect.bottom &&
-        ball.dy < 0
+        oldY - ball.r >= compBottom && // was below
+        ball.y - ball.r <= compBottom && // now inside/up
+        ball.x > compLeft &&
+        ball.x < compRight
       ) {
-        // Bounce down
-        ball.dy = Math.abs(ball.dy);
+        ball.y = compBottom + ball.r; // snap just below paddle
+        ball.dy = Math.abs(ball.dy); // bounce downward
 
-        // Add spin
-        let hitPos = (ball.x - (compRect.left + computer.w / 2)) / (computer.w / 2);
+        let hitPos = (ball.x - (compLeft + computer.w / 2)) / (computer.w / 2);
         ball.dx += hitPos * 2;
         ball.spin = hitPos;
       }
@@ -171,7 +174,7 @@
       ball.spin = 0;
     }
 
-    // Mouse controls X and Y depth
+    // Mouse controls X and depth (mapped to Y)
     canvas.addEventListener("mousemove", (e) => {
       let rect = canvas.getBoundingClientRect();
       let mouseX = e.clientX - rect.left;
@@ -182,7 +185,7 @@
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Depth (now maps smoothly up to half the canvas)
+      // Depth (up to half canvas)
       let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
