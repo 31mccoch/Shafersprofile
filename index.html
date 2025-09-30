@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -11,6 +11,7 @@
       text-align: center;
       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
       color: white;
+      overflow: hidden;
     }
 
     header {
@@ -40,22 +41,22 @@
   </header>
 
   <div id="highScore">High Score: 0</div>
-  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    let player = { x: canvas.width / 2 - 50, y: canvas.height - 20, w: 100, h: 10 };
-    let computer = { x: canvas.width / 2 - 50, y: 10, w: 100, h: 10 };
-    let ball = { x: canvas.width / 2, y: canvas.height / 2, r: 8, dx: 3, dy: 3 };
+    let player = { x: canvas.width / 2 - 60, y: canvas.height - 30, w: 120, h: 12, depth: 0 };
+    let computer = { x: canvas.width / 2 - 60, y: 20, w: 120, h: 12 };
+    let ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 4, dy: 4, spin: 0 };
 
     let score = 0;
     let highScore = 0;
 
-    function drawPaddle(p) {
-      ctx.fillStyle = "white";
-      ctx.fillRect(p.x, p.y, p.w, p.h);
+    function drawPaddle(p, color = "white") {
+      ctx.fillStyle = color;
+      ctx.fillRect(p.x, p.y - p.depth, p.w, p.h);
     }
 
     function drawBall() {
@@ -76,65 +77,73 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Move ball
-      ball.x += ball.dx;
+      ball.x += ball.dx + ball.spin;
       ball.y += ball.dy;
 
-      // Ball bounce left/right walls
+      // Bounce walls
       if (ball.x + ball.r > canvas.width || ball.x - ball.r < 0) {
         ball.dx *= -1;
+        ball.spin = 0; // reset spin on wall hit
       }
 
-      // Ball bounce player
+      // Bounce player paddle
       if (
-        ball.y + ball.r >= player.y &&
+        ball.y + ball.r >= player.y - player.depth &&
+        ball.y + ball.r <= player.y - player.depth + player.h &&
         ball.x > player.x &&
         ball.x < player.x + player.w
       ) {
+        // Add spin depending on where ball hits + paddle depth
+        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
         ball.dy *= -1;
-        score++;
-        if (score > highScore) {
-          highScore = score;
-          document.getElementById("highScore").innerText = "High Score: " + highScore;
-        }
+        ball.dx += hitPos * 2;
+        ball.spin = hitPos * (player.depth / 5); // forward movement adds spin
       }
 
-      // Ball bounce computer
+      // Bounce computer paddle
       if (
         ball.y - ball.r <= computer.y + computer.h &&
         ball.x > computer.x &&
         ball.x < computer.x + computer.w
       ) {
         ball.dy *= -1;
+        ball.spin = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 4);
       }
 
-      // Game Over (computer scores)
+      // Player loses
       if (ball.y + ball.r > canvas.height) {
         score = 0;
         resetBall();
       }
 
-      // Computer scores if ball passes top
+      // Player scores only if ball passes computer
       if (ball.y - ball.r < 0) {
-        ball.dy *= -1;
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          document.getElementById("highScore").innerText = "High Score: " + highScore;
+        }
+        resetBall(true); // restart after point
       }
 
-      // Computer AI
-      computer.x += (ball.x - (computer.x + computer.w / 2)) * 0.05;
+      // Computer AI: follow ball smoothly
+      computer.x += (ball.x - (computer.x + computer.w / 2)) * 0.07;
 
-      // Draw everything
-      drawPaddle(player);
-      drawPaddle(computer);
+      // Draw
+      drawPaddle(player, "white");
+      drawPaddle(computer, "cyan");
       drawBall();
       drawScore();
 
       requestAnimationFrame(update);
     }
 
-    function resetBall() {
+    function resetBall(playerScored = false) {
       ball.x = canvas.width / 2;
       ball.y = canvas.height / 2;
-      ball.dx = 3 * (Math.random() > 0.5 ? 1 : -1);
-      ball.dy = 3 * (Math.random() > 0.5 ? 1 : -1);
+      ball.dx = 4 * (Math.random() > 0.5 ? 1 : -1);
+      ball.dy = playerScored ? 4 : -4;
+      ball.spin = 0;
     }
 
     // Control with mouse
@@ -142,9 +151,18 @@
       let rect = canvas.getBoundingClientRect();
       player.x = e.clientX - rect.left - player.w / 2;
 
-      // Clamp inside canvas
+      // Clamp
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+    });
+
+    // Forward/back movement for extra power/spin (W/S keys)
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "w" || e.key === "ArrowUp") {
+        player.depth = Math.min(player.depth + 5, 30); // max push forward
+      } else if (e.key === "s" || e.key === "ArrowDown") {
+        player.depth = Math.max(player.depth - 5, 0);
+      }
     });
 
     update();
