@@ -84,7 +84,7 @@
       // Bounce walls
       if (ball.x + ball.r > canvas.width || ball.x - ball.r < 0) {
         ball.dx *= -1;
-        ball.spin = 0; // reset spin on wall hit
+        ball.spin = 0;
       }
 
       // Bounce player paddle
@@ -97,7 +97,7 @@
         let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
         ball.dy *= -1;
         ball.dx += hitPos * 2;
-        ball.spin = hitPos * (player.depth / 5);
+        ball.spin = hitPos * (player.depth / 10); // spin stronger with more depth
       }
 
       // Bounce computer paddle
@@ -116,7 +116,7 @@
         resetBall();
       }
 
-      // Player scores only if ball passes computer
+      // Player scores
       if (ball.y - ball.r < 0) {
         score++;
         if (score > highScore) {
@@ -146,21 +146,19 @@
       ball.spin = 0;
     }
 
-    // Mouse controls both X (left-right) and depth (up-forward)
+    // Mouse controls X and Y depth
     canvas.addEventListener("mousemove", (e) => {
       let rect = canvas.getBoundingClientRect();
       let mouseX = e.clientX - rect.left;
       let mouseY = e.clientY - rect.top;
 
-      // Move horizontally
+      // Horizontal control
       player.x = mouseX - player.w / 2;
-
-      // Clamp horizontal
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Map mouse Y to paddle depth (lower = no depth, higher = max push)
-      let maxDepth = 40;
+      // Depth control (much larger range, up to half the canvas height)
+      let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
     });
