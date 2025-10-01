@@ -33,6 +33,20 @@
       font-size: 20px;
       font-weight: bold;
     }
+
+    #restartBtn {
+      position: absolute;
+      top: 10px;
+      left: 20px;
+      padding: 8px 16px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #ff4444;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -42,6 +56,7 @@
   </header>
 
   <div id="highScore">High Score: 0</div>
+  <button id="restartBtn">New Game</button>
   <canvas id="gameCanvas" width="800" height="600"></canvas>
 
   <script>
@@ -50,7 +65,7 @@
 
     let player = { x: canvas.width / 2 - 60, y: canvas.height - 30, w: 120, h: 12, depth: 0 };
     let computer = { x: canvas.width / 2 - 60, y: 20, w: 120, h: 12 };
-    let ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 4, dy: 4, spin: 0 };
+    let ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 4, dy: 4 };
 
     let score = 0;
     let highScore = 0;
@@ -77,71 +92,54 @@
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Save old position
-      let oldX = ball.x;
-      let oldY = ball.y;
-
       // Move ball
-      ball.x += ball.dx + ball.spin;
+      ball.x += ball.dx;
       ball.y += ball.dy;
 
-      // Bounce walls
+      // Walls
       if (ball.x + ball.r > canvas.width) {
         ball.x = canvas.width - ball.r;
         ball.dx *= -1;
-        ball.spin = 0;
       }
       if (ball.x - ball.r < 0) {
         ball.x = ball.r;
         ball.dx *= -1;
-        ball.spin = 0;
       }
 
-      // === PLAYER PADDLE COLLISION ===
+      // Player paddle collision
       let playerTop = player.y - player.depth;
-      let playerBottom = playerTop + player.h;
-      let playerLeft = player.x;
-      let playerRight = player.x + player.w;
-
       if (
-        oldY + ball.r <= playerTop && // was above paddle
-        ball.y + ball.r >= playerTop && // now inside/down
-        ball.x > playerLeft &&
-        ball.x < playerRight
+        ball.y + ball.r >= playerTop &&
+        ball.y - ball.r <= playerTop + player.h &&
+        ball.x > player.x &&
+        ball.x < player.x + player.w &&
+        ball.dy > 0
       ) {
-        ball.y = playerTop - ball.r; // snap just above paddle
+        ball.y = playerTop - ball.r; // snap above
         ball.dy = -Math.abs(ball.dy); // bounce upward
-
-        // add spin
-        let hitPos = (ball.x - (playerLeft + player.w / 2)) / (player.w / 2);
-        ball.dx += hitPos * 2;
-        ball.spin = hitPos * (player.depth / 10);
+        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
+        ball.dx = 4 * hitPos; // curve based on hit position
       }
 
-      // === COMPUTER PADDLE COLLISION ===
-      let compTop = computer.y;
-      let compBottom = compTop + computer.h;
-      let compLeft = computer.x;
-      let compRight = computer.x + computer.w;
-
+      // Computer paddle collision
+      let compBottom = computer.y + computer.h;
       if (
-        oldY - ball.r >= compBottom && // was below
-        ball.y - ball.r <= compBottom && // now inside/up
-        ball.x > compLeft &&
-        ball.x < compRight
+        ball.y - ball.r <= compBottom &&
+        ball.y + ball.r >= computer.y &&
+        ball.x > computer.x &&
+        ball.x < computer.x + computer.w &&
+        ball.dy < 0
       ) {
-        ball.y = compBottom + ball.r; // snap just below paddle
+        ball.y = compBottom + ball.r; // snap below
         ball.dy = Math.abs(ball.dy); // bounce downward
-
-        let hitPos = (ball.x - (compLeft + computer.w / 2)) / (computer.w / 2);
-        ball.dx += hitPos * 2;
-        ball.spin = hitPos;
+        let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
+        ball.dx = 4 * hitPos;
       }
 
       // Player loses
       if (ball.y - ball.r > canvas.height) {
         score = 0;
-        resetBall();
+        resetBall(false);
       }
 
       // Player scores
@@ -171,24 +169,29 @@
       ball.y = canvas.height / 2;
       ball.dx = 4 * (Math.random() > 0.5 ? 1 : -1);
       ball.dy = playerScored ? 4 : -4;
-      ball.spin = 0;
     }
 
-    // Mouse controls X and depth (mapped to Y)
+    // Mouse controls
     canvas.addEventListener("mousemove", (e) => {
       let rect = canvas.getBoundingClientRect();
       let mouseX = e.clientX - rect.left;
       let mouseY = e.clientY - rect.top;
 
-      // Horizontal
+      // X movement
       player.x = mouseX - player.w / 2;
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Depth (up to half canvas)
+      // Depth
       let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
+    });
+
+    // Restart button
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      score = 0;
+      resetBall(false);
     });
 
     update();
