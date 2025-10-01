@@ -64,6 +64,7 @@
     let score = 0;
     let highScore = 0;
     const BASE_SPEED = 5;
+    let trail = []; // for glow trail
 
     function drawPaddle(p, color = "white") {
       ctx.fillStyle = color;
@@ -76,11 +77,25 @@
     }
 
     function drawBall() {
+      // Glow trail
+      ctx.save();
+      for (let i = 0; i < trail.length; i++) {
+        let t = trail[i];
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, ball.r * (1 - i / trail.length), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,100,100,${0.5 - i * 0.05})`;
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Main glowing ball
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fillStyle = "red";
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = "red";
       ctx.fill();
-      ctx.closePath();
+      ctx.shadowBlur = 0;
     }
 
     function drawScore() {
@@ -92,72 +107,17 @@
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Save old ball position
-      let oldX = ball.x;
-      let oldY = ball.y;
-
-      // Move ball
-      ball.x += ball.dx;
-      ball.y += ball.dy;
-
-      // Bounce off side walls
-      if (ball.x + ball.r > canvas.width) {
-        ball.x = canvas.width - ball.r;
-        ball.dx *= -1;
-      }
-      if (ball.x - ball.r < 0) {
-        ball.x = ball.r;
-        ball.dx *= -1;
+      // --- Sub-step movement ---
+      let steps = 4;
+      for (let i = 0; i < steps; i++) {
+        moveBall(1 / steps);
       }
 
-      // Build paddle rects
-      let playerTop = player.y - player.depth;
-      let playerRect = { x: player.x, y: playerTop, w: player.w, h: player.h };
-      let compRect = { x: computer.x, y: computer.y, w: computer.w, h: computer.h };
+      // Update trail
+      trail.unshift({ x: ball.x, y: ball.y });
+      if (trail.length > 10) trail.pop();
 
-      // === Collision with player ===
-      if (circleRectOverlap(ball, playerRect) && ball.dy > 0) {
-        ball.y = playerRect.y - ball.r; // snap above
-        ball.dy = -Math.abs(ball.dy);
-
-        // Horizontal angle based on hit location
-        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
-        ball.dx = BASE_SPEED * hitPos;
-
-        // Add "power" if paddle is forward
-        let power = player.depth / (canvas.height / 2); // 0..1
-        ball.dx *= (1 + 0.5 * power);
-        ball.dy *= (1 + 0.5 * power);
-
-        normalizeBallSpeed();
-      }
-
-      // === Collision with computer ===
-      if (circleRectOverlap(ball, compRect) && ball.dy < 0) {
-        ball.y = compRect.y + compRect.h + ball.r; // snap below
-        ball.dy = Math.abs(ball.dy);
-        let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
-        ball.dx = BASE_SPEED * hitPos;
-        normalizeBallSpeed();
-      }
-
-      // Player loses
-      if (ball.y - ball.r > canvas.height) {
-        score = 0;
-        resetBall(false);
-      }
-
-      // Player scores
-      if (ball.y + ball.r < 0) {
-        score++;
-        if (score > highScore) {
-          highScore = score;
-          document.getElementById("highScore").innerText = "High Score: " + highScore;
-        }
-        resetBall(true);
-      }
-
-      // Computer AI (simple follow)
+      // Computer AI
       computer.x += (ball.x - (computer.x + computer.w / 2)) * 0.07;
 
       // Draw
@@ -170,9 +130,67 @@
       requestAnimationFrame(update);
     }
 
+    function moveBall(fraction) {
+      ball.x += ball.dx * fraction;
+      ball.y += ball.dy * fraction;
+
+      // Bounce off side walls
+      if (ball.x + ball.r > canvas.width) {
+        ball.x = canvas.width - ball.r;
+        ball.dx *= -1;
+      }
+      if (ball.x - ball.r < 0) {
+        ball.x = ball.r;
+        ball.dx *= -1;
+      }
+
+      // Rects
+      let playerTop = player.y - player.depth;
+      let playerRect = { x: player.x, y: playerTop, w: player.w, h: player.h };
+      let compRect = { x: computer.x, y: computer.y, w: computer.w, h: computer.h };
+
+      // Collisions
+      if (circleRectOverlap(ball, playerRect) && ball.dy > 0) {
+        ball.y = playerRect.y - ball.r;
+        ball.dy = -Math.abs(ball.dy);
+
+        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
+        ball.dx = BASE_SPEED * hitPos;
+
+        let power = player.depth / (canvas.height / 2);
+        ball.dx *= (1 + 0.5 * power);
+        ball.dy *= (1 + 0.5 * power);
+
+        normalizeBallSpeed();
+      }
+
+      if (circleRectOverlap(ball, compRect) && ball.dy < 0) {
+        ball.y = compRect.y + compRect.h + ball.r;
+        ball.dy = Math.abs(ball.dy);
+
+        let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
+        ball.dx = BASE_SPEED * hitPos;
+
+        normalizeBallSpeed();
+      }
+
+      // Scores
+      if (ball.y - ball.r > canvas.height) {
+        score = 0;
+        resetBall(false);
+      }
+      if (ball.y + ball.r < 0) {
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          document.getElementById("highScore").innerText = "High Score: " + highScore;
+        }
+        resetBall(true);
+      }
+    }
+
     function normalizeBallSpeed() {
-      // Keep constant magnitude
-      let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
+      let speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
       if (speed === 0) return;
       let scale = BASE_SPEED / speed;
       ball.dx *= scale;
@@ -184,6 +202,7 @@
       ball.y = canvas.height / 2;
       ball.dx = BASE_SPEED * (Math.random() > 0.5 ? 1 : -1);
       ball.dy = playerScored ? BASE_SPEED : -BASE_SPEED;
+      trail = [];
     }
 
     // Mouse controls
@@ -192,32 +211,29 @@
       let mouseX = e.clientX - rect.left;
       let mouseY = e.clientY - rect.top;
 
-      // X movement
       player.x = mouseX - player.w / 2;
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Depth (forward movement)
       let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
     });
 
-    // Restart button
+    // Restart
     document.getElementById("restartBtn").addEventListener("click", () => {
       score = 0;
       resetBall(false);
     });
 
-    // === Utility: circle-rect overlap ===
     function circleRectOverlap(circle, rect) {
       let cx = circle.x, cy = circle.y, r = circle.r;
       let rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
-      let closestX = Math.max(rx, Math.min(cx, rx+rw));
-      let closestY = Math.max(ry, Math.min(cy, ry+rh));
+      let closestX = Math.max(rx, Math.min(cx, rx + rw));
+      let closestY = Math.max(ry, Math.min(cy, ry + rh));
       let dx = cx - closestX;
       let dy = cy - closestY;
-      return (dx*dx + dy*dy) <= r*r;
+      return (dx * dx + dy * dy) <= r * r;
     }
 
     update();
