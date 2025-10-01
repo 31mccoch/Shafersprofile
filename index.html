@@ -63,6 +63,7 @@
 
     let score = 0;
     let highScore = 0;
+    const BASE_SPEED = 5;
 
     function drawPaddle(p, color = "white") {
       ctx.fillStyle = color;
@@ -99,7 +100,7 @@
       ball.x += ball.dx;
       ball.y += ball.dy;
 
-      // Bounce walls
+      // Bounce off side walls
       if (ball.x + ball.r > canvas.width) {
         ball.x = canvas.width - ball.r;
         ball.dx *= -1;
@@ -109,28 +110,35 @@
         ball.dx *= -1;
       }
 
-      // Player paddle rect (with depth)
+      // Build paddle rects
       let playerTop = player.y - player.depth;
       let playerRect = { x: player.x, y: playerTop, w: player.w, h: player.h };
-
-      // Computer paddle rect
       let compRect = { x: computer.x, y: computer.y, w: computer.w, h: computer.h };
 
-      // Check collisions
-      if ((lineIntersectsRect(oldX, oldY, ball.x, ball.y, playerRect) ||
-           circleRectOverlap(ball, playerRect)) && ball.dy > 0) {
-        ball.y = playerRect.y - ball.r;
+      // === Collision with player ===
+      if (circleRectOverlap(ball, playerRect) && ball.dy > 0) {
+        ball.y = playerRect.y - ball.r; // snap above
         ball.dy = -Math.abs(ball.dy);
+
+        // Horizontal angle based on hit location
         let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
-        ball.dx = 4 * hitPos;
+        ball.dx = BASE_SPEED * hitPos;
+
+        // Add "power" if paddle is forward
+        let power = player.depth / (canvas.height / 2); // 0..1
+        ball.dx *= (1 + 0.5 * power);
+        ball.dy *= (1 + 0.5 * power);
+
+        normalizeBallSpeed();
       }
 
-      if ((lineIntersectsRect(oldX, oldY, ball.x, ball.y, compRect) ||
-           circleRectOverlap(ball, compRect)) && ball.dy < 0) {
-        ball.y = compRect.y + compRect.h + ball.r;
+      // === Collision with computer ===
+      if (circleRectOverlap(ball, compRect) && ball.dy < 0) {
+        ball.y = compRect.y + compRect.h + ball.r; // snap below
         ball.dy = Math.abs(ball.dy);
         let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
-        ball.dx = 4 * hitPos;
+        ball.dx = BASE_SPEED * hitPos;
+        normalizeBallSpeed();
       }
 
       // Player loses
@@ -149,7 +157,7 @@
         resetBall(true);
       }
 
-      // Computer AI
+      // Computer AI (simple follow)
       computer.x += (ball.x - (computer.x + computer.w / 2)) * 0.07;
 
       // Draw
@@ -162,11 +170,20 @@
       requestAnimationFrame(update);
     }
 
+    function normalizeBallSpeed() {
+      // Keep constant magnitude
+      let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
+      if (speed === 0) return;
+      let scale = BASE_SPEED / speed;
+      ball.dx *= scale;
+      ball.dy *= scale;
+    }
+
     function resetBall(playerScored = false) {
       ball.x = canvas.width / 2;
       ball.y = canvas.height / 2;
-      ball.dx = 4 * (Math.random() > 0.5 ? 1 : -1);
-      ball.dy = playerScored ? 4 : -4;
+      ball.dx = BASE_SPEED * (Math.random() > 0.5 ? 1 : -1);
+      ball.dy = playerScored ? BASE_SPEED : -BASE_SPEED;
     }
 
     // Mouse controls
@@ -180,7 +197,7 @@
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Depth
+      // Depth (forward movement)
       let maxDepth = canvas.height / 2;
       let baseLine = canvas.height - 30;
       player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
@@ -192,23 +209,7 @@
       resetBall(false);
     });
 
-    // === Utility: line→rect intersection ===
-    function lineIntersectsRect(x1, y1, x2, y2, rect) {
-      return lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y,rect.x+rect.w,rect.y) || // top
-             lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y,rect.x,rect.y+rect.h) || // left
-             lineIntersectsLine(x1,y1,x2,y2,rect.x+rect.w,rect.y,rect.x+rect.w,rect.y+rect.h) || // right
-             lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y+rect.h,rect.x+rect.w,rect.y+rect.h);   // bottom
-    }
-
-    function lineIntersectsLine(x1,y1,x2,y2,x3,y3,x4,y4) {
-      function ccw(ax,ay,bx,by,cx,cy) {
-        return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
-      }
-      return (ccw(x1,y1,x3,y3,x4,y4) !== ccw(x2,y2,x3,y3,x4,y4)) &&
-             (ccw(x1,y1,x2,y2,x3,y3) !== ccw(x1,y1,x2,y2,x4,y4));
-    }
-
-    // Extra: circle-rect overlap (catches paddle moving into ball)
+    // === Utility: circle-rect overlap ===
     function circleRectOverlap(circle, rect) {
       let cx = circle.x, cy = circle.y, r = circle.r;
       let rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
