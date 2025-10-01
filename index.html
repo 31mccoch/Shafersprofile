@@ -13,9 +13,7 @@
       color: white;
       overflow: hidden;
     }
-
     header { padding: 20px; }
-
     #gameCanvas {
       display: block;
       margin: 20px auto;
@@ -23,7 +21,6 @@
       border: 4px solid white;
       cursor: none;
     }
-
     #highScore {
       position: absolute;
       top: 10px;
@@ -31,7 +28,6 @@
       font-size: 20px;
       font-weight: bold;
     }
-
     #restartBtn {
       position: absolute;
       top: 10px;
@@ -95,7 +91,7 @@
     function update() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Save old pos
+      // Save old ball position
       let oldX = ball.x;
       let oldY = ball.y;
 
@@ -113,23 +109,25 @@
         ball.dx *= -1;
       }
 
-      // Check player collision using old→new line
+      // Player paddle rect (with depth)
       let playerTop = player.y - player.depth;
-      if (lineIntersectsRect(oldX, oldY, ball.x, ball.y,
-                             player.x, playerTop, player.w, player.h) &&
-          ball.dy > 0) {
-        ball.y = playerTop - ball.r; // snap
+      let playerRect = { x: player.x, y: playerTop, w: player.w, h: player.h };
+
+      // Computer paddle rect
+      let compRect = { x: computer.x, y: computer.y, w: computer.w, h: computer.h };
+
+      // Check collisions
+      if ((lineIntersectsRect(oldX, oldY, ball.x, ball.y, playerRect) ||
+           circleRectOverlap(ball, playerRect)) && ball.dy > 0) {
+        ball.y = playerRect.y - ball.r;
         ball.dy = -Math.abs(ball.dy);
         let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
         ball.dx = 4 * hitPos;
       }
 
-      // Check computer collision
-      let compY = computer.y;
-      if (lineIntersectsRect(oldX, oldY, ball.x, ball.y,
-                             computer.x, compY, computer.w, computer.h) &&
-          ball.dy < 0) {
-        ball.y = compY + computer.h + ball.r;
+      if ((lineIntersectsRect(oldX, oldY, ball.x, ball.y, compRect) ||
+           circleRectOverlap(ball, compRect)) && ball.dy < 0) {
+        ball.y = compRect.y + compRect.h + ball.r;
         ball.dy = Math.abs(ball.dy);
         let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
         ball.dx = 4 * hitPos;
@@ -194,12 +192,12 @@
       resetBall(false);
     });
 
-    // === Utility: check line→rect intersection ===
-    function lineIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
-      return lineIntersectsLine(x1, y1, x2, y2, rx, ry, rx+rw, ry) || // top
-             lineIntersectsLine(x1, y1, x2, y2, rx, ry, rx, ry+rh) || // left
-             lineIntersectsLine(x1, y1, x2, y2, rx+rw, ry, rx+rw, ry+rh) || // right
-             lineIntersectsLine(x1, y1, x2, y2, rx, ry+rh, rx+rw, ry+rh);   // bottom
+    // === Utility: line→rect intersection ===
+    function lineIntersectsRect(x1, y1, x2, y2, rect) {
+      return lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y,rect.x+rect.w,rect.y) || // top
+             lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y,rect.x,rect.y+rect.h) || // left
+             lineIntersectsLine(x1,y1,x2,y2,rect.x+rect.w,rect.y,rect.x+rect.w,rect.y+rect.h) || // right
+             lineIntersectsLine(x1,y1,x2,y2,rect.x,rect.y+rect.h,rect.x+rect.w,rect.y+rect.h);   // bottom
     }
 
     function lineIntersectsLine(x1,y1,x2,y2,x3,y3,x4,y4) {
@@ -208,6 +206,17 @@
       }
       return (ccw(x1,y1,x3,y3,x4,y4) !== ccw(x2,y2,x3,y3,x4,y4)) &&
              (ccw(x1,y1,x2,y2,x3,y3) !== ccw(x1,y1,x2,y2,x4,y4));
+    }
+
+    // Extra: circle-rect overlap (catches paddle moving into ball)
+    function circleRectOverlap(circle, rect) {
+      let cx = circle.x, cy = circle.y, r = circle.r;
+      let rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
+      let closestX = Math.max(rx, Math.min(cx, rx+rw));
+      let closestY = Math.max(ry, Math.min(cy, ry+rh));
+      let dx = cx - closestX;
+      let dy = cy - closestY;
+      return (dx*dx + dy*dy) <= r*r;
     }
 
     update();
