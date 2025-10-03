@@ -96,14 +96,14 @@
 
       moveBall();
 
-      // AI follows ball
+      // AI
       computer.x += (ball.x - (computer.x+computer.w/2)) * 0.07;
 
       // update trail
       trail.unshift({x:ball.x, y:ball.y});
       if (trail.length>10) trail.pop();
 
-      // draw everything
+      // draw
       drawPaddle(player);
       drawPaddle(computer,"cyan");
       drawBall();
@@ -134,10 +134,15 @@
 
       // scoring
       if (ball.y - ball.r > canvas.height) {
-        score = 0;
+        score=0;
         resetBall(false);
       }
       if (ball.y + ball.r < 0) {
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          document.getElementById("highScore").innerText = "High Score: " + highScore;
+        }
         resetBall(true);
       }
     }
@@ -146,7 +151,9 @@
       let top = paddle.y - paddle.depth;
       let rect = {x:paddle.x, y:top, w:paddle.w, h:paddle.h};
 
+      // only check if ball moved toward paddle
       if ((paddle === player && ball.dy > 0) || (paddle === computer && ball.dy < 0)) {
+        // approximate line movement
         let steps = 8;
         for (let i=1; i<=steps; i++) {
           let t = i/steps;
@@ -155,6 +162,7 @@
           let tempBall = {x:ix, y:iy, r:ball.r};
 
           if (circleRectOverlap(tempBall, rect)) {
+            // snap ball to this position
             ball.x = ix;
             ball.y = iy;
 
@@ -162,14 +170,6 @@
             if (paddle === player) {
               ball.y = rect.y - ball.r;
               ball.dy = -Math.abs(ball.dy);
-
-              // ✅ Count hit as a point
-              score++;
-              if (score > highScore) {
-                highScore = score;
-                document.getElementById("highScore").innerText = "High Score: " + highScore;
-              }
-
             } else {
               ball.y = rect.y + rect.h + ball.r;
               ball.dy = Math.abs(ball.dy);
