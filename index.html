@@ -1,29 +1,32 @@
-function moveBall() {
+ function moveBall() {
   let oldX = ball.x, oldY = ball.y;
 
   ball.x += ball.dx;
   ball.y += ball.dy;
 
-  // Swept wall collision (left + right)
+  // Left & right wall bounce
   if (ball.x + ball.r > canvas.width) {
     ball.x = canvas.width - ball.r;
-    ball.dx = -Math.abs(ball.dx); // bounce left
+    ball.dx = -Math.abs(ball.dx);
   }
   if (ball.x - ball.r < 0) {
     ball.x = ball.r;
-    ball.dx = Math.abs(ball.dx); // bounce right
+    ball.dx = Math.abs(ball.dx);
   }
 
-  // Swept collision detection for player & computer
+  // ✅ Top wall bounce
+  if (ball.y - ball.r < 0) {
+    ball.y = ball.r;
+    ball.dy = Math.abs(ball.dy);
+  }
+
+  // ✅ Bottom wall bounce (instead of losing immediately)
+  if (ball.y + ball.r > canvas.height) {
+    ball.y = canvas.height - ball.r;
+    ball.dy = -Math.abs(ball.dy);
+  }
+
+  // Swept collision detection for paddles
   sweptCollision(oldX, oldY, ball.x, ball.y, player);
   sweptCollision(oldX, oldY, ball.x, ball.y, computer);
-
-  // scoring
-  if (ball.y - ball.r > canvas.height) {
-    score = 0;
-    resetBall(false);
-  }
-  if (ball.y + ball.r < 0) {
-    resetBall(true);
-  }
 }
