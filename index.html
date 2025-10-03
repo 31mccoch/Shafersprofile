@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Profile + Ping Pong Game</title>
+  <title>Ping Pong Game</title>
   <style>
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      text-align: center;
       background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
       color: white;
-      overflow: hidden;
+      text-align: center;
     }
-    header { padding: 20px; }
     #gameCanvas {
       display: block;
       margin: 20px auto;
@@ -34,7 +32,6 @@
       left: 20px;
       padding: 8px 16px;
       font-size: 16px;
-      font-weight: bold;
       border: none;
       border-radius: 8px;
       cursor: pointer;
@@ -44,11 +41,7 @@
   </style>
 </head>
 <body>
-  <header>
-    <h1>Welcome to My Profile</h1>
-    <p>Enjoy this Ping Pong Game vs Computer!</p>
-  </header>
-
+  <h1>Ping Pong Game vs Computer</h1>
   <div id="highScore">High Score: 0</div>
   <button id="restartBtn">New Game</button>
   <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -57,40 +50,34 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    let player = { x: canvas.width / 2 - 60, y: canvas.height - 30, w: 120, h: 12, depth: 0 };
-    let computer = { x: canvas.width / 2 - 60, y: 20, w: 120, h: 12 };
-    let ball = { x: canvas.width / 2, y: canvas.height / 2, r: 10, dx: 4, dy: 4 };
+    let player = { x: canvas.width/2-60, y: canvas.height-30, w: 120, h: 12, depth: 0 };
+    let computer = { x: canvas.width/2-60, y: 20, w: 120, h: 12 };
+    let ball = { x: canvas.width/2, y: canvas.height/2, r: 10, dx: 4, dy: 4 };
 
-    let score = 0;
-    let highScore = 0;
     const BASE_SPEED = 5;
-    let trail = []; // for glow trail
+    let score = 0, highScore = 0;
+    let trail = [];
 
-    function drawPaddle(p, color = "white") {
+    function drawPaddle(p, color="white") {
       ctx.fillStyle = color;
       ctx.fillRect(p.x, p.y - p.depth, p.w, p.h);
     }
 
-    function drawShadow(p) {
-      ctx.fillStyle = "rgba(200,200,200,0.3)";
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-    }
-
     function drawBall() {
-      // Glow trail
+      // glow trail
       ctx.save();
-      for (let i = 0; i < trail.length; i++) {
+      for (let i=0; i<trail.length; i++) {
         let t = trail[i];
         ctx.beginPath();
-        ctx.arc(t.x, t.y, ball.r * (1 - i / trail.length), 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,100,100,${0.5 - i * 0.05})`;
+        ctx.arc(t.x, t.y, ball.r*(1-i/trail.length), 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,100,100,${0.5-i*0.05})`;
         ctx.fill();
       }
       ctx.restore();
 
-      // Main glowing ball
+      // glowing main ball
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
       ctx.fillStyle = "red";
       ctx.shadowBlur = 20;
       ctx.shadowColor = "red";
@@ -101,40 +88,35 @@
     function drawScore() {
       ctx.fillStyle = "white";
       ctx.font = "16px Arial";
-      ctx.fillText("Score: " + score, 20, canvas.height - 20);
+      ctx.fillText("Score: " + score, 20, canvas.height-20);
     }
 
     function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // --- Sub-step movement ---
-      let steps = 4;
-      for (let i = 0; i < steps; i++) {
-        moveBall(1 / steps);
-      }
+      moveBall();
 
-      // Update trail
-      trail.unshift({ x: ball.x, y: ball.y });
-      if (trail.length > 10) trail.pop();
+      // AI
+      computer.x += (ball.x - (computer.x+computer.w/2)) * 0.07;
 
-      // Computer AI
-      computer.x += (ball.x - (computer.x + computer.w / 2)) * 0.07;
+      // update trail
+      trail.unshift({x:ball.x, y:ball.y});
+      if (trail.length>10) trail.pop();
 
-      // Draw
-      drawShadow(player);
-      drawPaddle(player, "white");
-      drawPaddle(computer, "cyan");
+      // draw
+      drawPaddle(player);
+      drawPaddle(computer,"cyan");
       drawBall();
       drawScore();
 
       requestAnimationFrame(update);
     }
 
-    function moveBall(fraction) {
-      ball.x += ball.dx * fraction;
-      ball.y += ball.dy * fraction;
+    function moveBall() {
+      ball.x += ball.dx;
+      ball.y += ball.dy;
 
-      // Bounce off side walls
+      // Clamp + bounce on walls
       if (ball.x + ball.r > canvas.width) {
         ball.x = canvas.width - ball.r;
         ball.dx *= -1;
@@ -144,39 +126,13 @@
         ball.dx *= -1;
       }
 
-      // Rects
-      let playerTop = player.y - player.depth;
-      let playerRect = { x: player.x, y: playerTop, w: player.w, h: player.h };
-      let compRect = { x: computer.x, y: computer.y, w: computer.w, h: computer.h };
+      // Check collisions
+      handleCollision(player);
+      handleCollision(computer);
 
-      // Collisions
-      if (circleRectOverlap(ball, playerRect) && ball.dy > 0) {
-        ball.y = playerRect.y - ball.r;
-        ball.dy = -Math.abs(ball.dy);
-
-        let hitPos = (ball.x - (player.x + player.w / 2)) / (player.w / 2);
-        ball.dx = BASE_SPEED * hitPos;
-
-        let power = player.depth / (canvas.height / 2);
-        ball.dx *= (1 + 0.5 * power);
-        ball.dy *= (1 + 0.5 * power);
-
-        normalizeBallSpeed();
-      }
-
-      if (circleRectOverlap(ball, compRect) && ball.dy < 0) {
-        ball.y = compRect.y + compRect.h + ball.r;
-        ball.dy = Math.abs(ball.dy);
-
-        let hitPos = (ball.x - (computer.x + computer.w / 2)) / (computer.w / 2);
-        ball.dx = BASE_SPEED * hitPos;
-
-        normalizeBallSpeed();
-      }
-
-      // Scores
+      // scoring
       if (ball.y - ball.r > canvas.height) {
-        score = 0;
+        score=0;
         resetBall(false);
       }
       if (ball.y + ball.r < 0) {
@@ -189,52 +145,74 @@
       }
     }
 
+    function handleCollision(paddle) {
+      let top = paddle.y - paddle.depth;
+      let rect = {x:paddle.x, y:top, w:paddle.w, h:paddle.h};
+
+      if (circleRectOverlap(ball, rect)) {
+        // If ball is moving downward (towards player)
+        if (ball.dy > 0 && paddle === player) {
+          ball.y = rect.y - ball.r;
+          ball.dy = -Math.abs(ball.dy);
+        }
+        // If ball is moving upward (towards computer)
+        else if (ball.dy < 0 && paddle === computer) {
+          ball.y = rect.y + rect.h + ball.r;
+          ball.dy = Math.abs(ball.dy);
+        }
+
+        // Angle / spin
+        let hitPos = (ball.x - (rect.x+rect.w/2)) / (rect.w/2);
+        ball.dx = BASE_SPEED * hitPos;
+
+        if (paddle === player) {
+          let power = paddle.depth/(canvas.height/2);
+          ball.dx *= (1+0.5*power);
+          ball.dy *= (1+0.5*power);
+        }
+
+        normalizeBallSpeed();
+      }
+    }
+
+    function circleRectOverlap(c,r) {
+      let cx=c.x, cy=c.y, cr=c.r;
+      let closestX = Math.max(r.x, Math.min(cx, r.x+r.w));
+      let closestY = Math.max(r.y, Math.min(cy, r.y+r.h));
+      let dx = cx-closestX, dy = cy-closestY;
+      return dx*dx+dy*dy <= cr*cr;
+    }
+
     function normalizeBallSpeed() {
-      let speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-      if (speed === 0) return;
-      let scale = BASE_SPEED / speed;
-      ball.dx *= scale;
+      let speed = Math.sqrt(ball.dx*ball.dx+ball.dy*ball.dy);
+      if (speed===0) return;
+      let scale = BASE_SPEED/speed;
+      ball.dx *= scale; 
       ball.dy *= scale;
     }
 
-    function resetBall(playerScored = false) {
-      ball.x = canvas.width / 2;
-      ball.y = canvas.height / 2;
-      ball.dx = BASE_SPEED * (Math.random() > 0.5 ? 1 : -1);
-      ball.dy = playerScored ? BASE_SPEED : -BASE_SPEED;
-      trail = [];
+    function resetBall(playerScored) {
+      ball.x=canvas.width/2; 
+      ball.y=canvas.height/2;
+      ball.dx = BASE_SPEED*(Math.random()>0.5?1:-1);
+      ball.dy = playerScored? BASE_SPEED : -BASE_SPEED;
+      trail=[];
     }
 
-    // Mouse controls
-    canvas.addEventListener("mousemove", (e) => {
+    // mouse
+    canvas.addEventListener("mousemove", e=>{
       let rect = canvas.getBoundingClientRect();
-      let mouseX = e.clientX - rect.left;
-      let mouseY = e.clientY - rect.top;
+      let mouseX = e.clientX-rect.left;
+      let mouseY = e.clientY-rect.top;
 
-      player.x = mouseX - player.w / 2;
-      if (player.x < 0) player.x = 0;
-      if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-
-      let maxDepth = canvas.height / 2;
-      let baseLine = canvas.height - 30;
-      player.depth = Math.max(0, Math.min(maxDepth, baseLine - mouseY));
+      player.x = Math.max(0, Math.min(canvas.width-player.w, mouseX-player.w/2));
+      let maxDepth = canvas.height/2;
+      let baseLine = canvas.height-30;
+      player.depth = Math.max(0, Math.min(maxDepth, baseLine-mouseY));
     });
 
-    // Restart
-    document.getElementById("restartBtn").addEventListener("click", () => {
-      score = 0;
-      resetBall(false);
-    });
-
-    function circleRectOverlap(circle, rect) {
-      let cx = circle.x, cy = circle.y, r = circle.r;
-      let rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
-      let closestX = Math.max(rx, Math.min(cx, rx + rw));
-      let closestY = Math.max(ry, Math.min(cy, ry + rh));
-      let dx = cx - closestX;
-      let dy = cy - closestY;
-      return (dx * dx + dy * dy) <= r * r;
-    }
+    // restart
+    document.getElementById("restartBtn").onclick = ()=>{ score=0; resetBall(false); };
 
     update();
   </script>
