@@ -1,10 +1,10 @@
- function moveBall() {
+function moveBall() {
   let oldX = ball.x, oldY = ball.y;
 
   ball.x += ball.dx;
   ball.y += ball.dy;
 
-  // Left & right wall bounce
+  // Left & right walls
   if (ball.x + ball.r > canvas.width) {
     ball.x = canvas.width - ball.r;
     ball.dx = -Math.abs(ball.dx);
@@ -14,19 +14,40 @@
     ball.dx = Math.abs(ball.dx);
   }
 
-  // ✅ Top wall bounce
+  // Top wall (bounce)
   if (ball.y - ball.r < 0) {
     ball.y = ball.r;
     ball.dy = Math.abs(ball.dy);
   }
 
-  // ✅ Bottom wall bounce (instead of losing immediately)
+  // Bottom wall (bounce)
   if (ball.y + ball.r > canvas.height) {
     ball.y = canvas.height - ball.r;
     ball.dy = -Math.abs(ball.dy);
   }
 
-  // Swept collision detection for paddles
+  // Paddle collisions (swept check so no clipping through)
   sweptCollision(oldX, oldY, ball.x, ball.y, player);
   sweptCollision(oldX, oldY, ball.x, ball.y, computer);
+
+  // ✅ Scoring: only when ball passes the computer’s paddle
+  if (ball.y - ball.r <= computer.y + computer.height) {
+    if (ball.x > computer.x && ball.x < computer.x + computer.width) {
+      // Computer blocked it → no score
+    } else {
+      score++;
+      if (score > highScore) highScore = score;
+      resetBall(true);
+    }
+  }
+
+  // ✅ Player miss
+  if (ball.y + ball.r >= player.y) {
+    if (ball.x > player.x && ball.x < player.x + player.width) {
+      // Player hit it → no reset
+    } else {
+      score = 0;
+      resetBall(false);
+    }
+  }
 }
