@@ -4,26 +4,28 @@ function moveBall() {
   ball.x += ball.dx;
   ball.y += ball.dy;
 
-  // Left & right walls
-  if (ball.x + ball.r > canvas.width) {
-    ball.x = canvas.width - ball.r;
-    ball.dx = -Math.abs(ball.dx);
-  }
+  // 🔹 Left wall bounce
   if (ball.x - ball.r < 0) {
     ball.x = ball.r;
     ball.dx = Math.abs(ball.dx);
   }
 
-  // ✅ Top wall bounce
+  // 🔹 Right wall bounce
+  if (ball.x + ball.r > canvas.width) {
+    ball.x = canvas.width - ball.r;
+    ball.dx = -Math.abs(ball.dx);
+  }
+
+  // 🔹 Top wall bounce
   if (ball.y - ball.r < 0) {
     ball.y = ball.r;
     ball.dy = Math.abs(ball.dy); // bounce downward
   }
 
-  // ❌ No bottom wall bounce — lose condition
+  // 🔹 Bottom wall bounce (so it always comes back to you)
   if (ball.y + ball.r > canvas.height) {
-    score = 0;
-    resetBall(false); // reset toward computer
+    ball.y = canvas.height - ball.r;
+    ball.dy = -Math.abs(ball.dy); // bounce upward
   }
 
   // Paddle collisions
