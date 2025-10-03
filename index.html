@@ -113,6 +113,8 @@
     }
 
     function moveBall() {
+      let oldX = ball.x, oldY = ball.y;
+
       ball.x += ball.dx;
       ball.y += ball.dy;
 
@@ -126,9 +128,9 @@
         ball.dx *= -1;
       }
 
-      // Check collisions
-      handleCollision(player);
-      handleCollision(computer);
+      // Swept collision detection for player & computer
+      sweptCollision(oldX, oldY, ball.x, ball.y, player);
+      sweptCollision(oldX, oldY, ball.x, ball.y, computer);
 
       // scoring
       if (ball.y - ball.r > canvas.height) {
@@ -145,33 +147,48 @@
       }
     }
 
-    function handleCollision(paddle) {
+    function sweptCollision(oldX, oldY, newX, newY, paddle) {
       let top = paddle.y - paddle.depth;
       let rect = {x:paddle.x, y:top, w:paddle.w, h:paddle.h};
 
-      if (circleRectOverlap(ball, rect)) {
-        // If ball is moving downward (towards player)
-        if (ball.dy > 0 && paddle === player) {
-          ball.y = rect.y - ball.r;
-          ball.dy = -Math.abs(ball.dy);
-        }
-        // If ball is moving upward (towards computer)
-        else if (ball.dy < 0 && paddle === computer) {
-          ball.y = rect.y + rect.h + ball.r;
-          ball.dy = Math.abs(ball.dy);
-        }
+      // only check if ball moved toward paddle
+      if ((paddle === player && ball.dy > 0) || (paddle === computer && ball.dy < 0)) {
+        // approximate line movement
+        let steps = 8;
+        for (let i=1; i<=steps; i++) {
+          let t = i/steps;
+          let ix = oldX + (newX-oldX)*t;
+          let iy = oldY + (newY-oldY)*t;
+          let tempBall = {x:ix, y:iy, r:ball.r};
 
-        // Angle / spin
-        let hitPos = (ball.x - (rect.x+rect.w/2)) / (rect.w/2);
-        ball.dx = BASE_SPEED * hitPos;
+          if (circleRectOverlap(tempBall, rect)) {
+            // snap ball to this position
+            ball.x = ix;
+            ball.y = iy;
 
-        if (paddle === player) {
-          let power = paddle.depth/(canvas.height/2);
-          ball.dx *= (1+0.5*power);
-          ball.dy *= (1+0.5*power);
+            // bounce
+            if (paddle === player) {
+              ball.y = rect.y - ball.r;
+              ball.dy = -Math.abs(ball.dy);
+            } else {
+              ball.y = rect.y + rect.h + ball.r;
+              ball.dy = Math.abs(ball.dy);
+            }
+
+            // angle / spin
+            let hitPos = (ball.x - (rect.x+rect.w/2)) / (rect.w/2);
+            ball.dx = BASE_SPEED * hitPos;
+
+            if (paddle === player) {
+              let power = paddle.depth/(canvas.height/2);
+              ball.dx *= (1+0.5*power);
+              ball.dy *= (1+0.5*power);
+            }
+
+            normalizeBallSpeed();
+            return;
+          }
         }
-
-        normalizeBallSpeed();
       }
     }
 
